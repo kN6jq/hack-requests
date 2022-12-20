@@ -260,7 +260,7 @@ class hackRequests(object):
         post = kwargs.get("post", None) or kwargs.get("data", None)
         location = kwargs.get('location', True)
         locationcount = kwargs.get("locationcount", 0)
-
+        dataNeedUrlEncode = kwargs.get('dataEncode', True)
         proxy = kwargs.get('proxy', None)
         headers = kwargs.get('headers', {})
 
@@ -303,6 +303,13 @@ class hackRequests(object):
                     pass
             try:
                 post = parse.urlencode(post)
+            except:
+                pass
+            try:
+                if dataNeedUrlEncode:
+                    post = parse.urlencode(post)
+                else:
+                    post = post.encode("utf-8")
             except:
                 pass
             if "Content-Type" not in headers:
