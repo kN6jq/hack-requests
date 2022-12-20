@@ -69,19 +69,19 @@ class httpcon(object):
     这是连接池中最重要的一个参数，连接生成、复用相关操作都在这
     '''
 
-    def get_con(self, url, proxy=None):
+    def get_con(self, url, proxy=None,timeout=10):
         scheme, host, port, path = url
-        conn = self._make_con(scheme, host, port, proxy)
+        conn = self._make_con(scheme, host, port, proxy,timeout)
         return conn
 
-    def _make_con(self, scheme, host, port, proxy=None):
+    def _make_con(self, scheme, host, port, proxy=None,timeout=10):
         if "https" != scheme:
             if proxy:
                 con = client.HTTPConnection(
-                    proxy[0], int(proxy[1]), timeout=self.timeout)
+                    proxy[0], int(proxy[1]), timeout=timeout)
                 con.set_tunnel(host, port)
             else:
-                con = client.HTTPConnection(host, port, timeout=self.timeout)
+                con = client.HTTPConnection(host, port, timeout=timeout)
             # con.connect()
             return con
         for p in self.protocol:
@@ -90,11 +90,11 @@ class httpcon(object):
                 if proxy:
                     con = client.HTTPSConnection(
                         proxy[0], proxy[1], context=context,
-                        timeout=self.timeout)
+                        timeout=timeout)
                     con.set_tunnel(host, port)
                 else:
                     con = client.HTTPSConnection(
-                        host, port, context=context, timeout=self.timeout)
+                        host, port, context=context, timeout=timeout)
                 # con.connect()
                 return con
             except ssl.SSLError:
@@ -113,7 +113,7 @@ class hackRequests(object):
         self.lock = threading.Lock()
 
         if conpool is None:
-            self.httpcon = httpcon(timeout=17)
+            self.httpcon = httpcon()
         else:
             self.httpcon = conpool
 
@@ -151,7 +151,7 @@ class hackRequests(object):
         real_host = kwargs.get("real_host", None)
         ssl = kwargs.get("ssl", False)
         location = kwargs.get("location", True)
-
+        timeout = kwargs.get("timeout", True)
         scheme = 'http'
         port = 80
         if ssl:
@@ -212,7 +212,7 @@ class hackRequests(object):
         urlinfo = scheme, host, int(port), path
         start = time.perf_counter()
         try:
-            conn = self.httpcon.get_con(urlinfo, proxy=proxy)
+            conn = self.httpcon.get_con(urlinfo, proxy=proxy,timeout=timeout)
         except:
             raise
         conn._send_output = self._send_output(conn._send_output, conn, log)
@@ -267,7 +267,7 @@ class hackRequests(object):
         dataNeedUrlEncode = kwargs.get('dataEncode', True)
         proxy = kwargs.get('proxy', None)
         headers = kwargs.get('headers', {})
-
+        timeout = kwargs.get("timeout", True)
         # real host:ip
         real_host = kwargs.get("real_host", None)
 
@@ -293,7 +293,7 @@ class hackRequests(object):
         urlinfo = scheme, host, port, path = self._get_urlinfo(url, real_host)
         log = {}
         try:
-            conn = self.httpcon.get_con(urlinfo, proxy=proxy)
+            conn = self.httpcon.get_con(urlinfo, proxy=proxy,timeout=timeout)
         except:
             raise
         conn._send_output = self._send_output(conn._send_output, conn, log)
@@ -506,14 +506,14 @@ class threadpool:
         except KeyboardInterrupt:
             exit("User Quit")
 
-    def http(self, url, **kwargs):
+    def http(self, url,timeout, **kwargs):
         func = self.hack.http
-        self.queue.put({"func": func, "url": url, "kw": kwargs})
+        self.queue.put({"func": func, "url": url, "kw": kwargs,"timeout":timeout})
 
-    def httpraw(self, raw: str, ssl: bool = False, proxy=None, location=True):
+    def httpraw(self, raw: str, ssl: bool = False, proxy=None, location=True,timeout=10):
         func = self.hack.httpraw
         self.queue.put({"func": func, "raw": raw, "ssl": ssl,
-                        "proxy": proxy, "location": location})
+                        "proxy": proxy, "location": location,"timeout":timeout})
 
     def scan(self):
         while 1:
