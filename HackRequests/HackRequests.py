@@ -12,6 +12,7 @@ import ssl
 import threading
 import time
 import zlib
+from datetime import timedelta
 from http import client
 from urllib import parse
 
@@ -209,7 +210,7 @@ class hackRequests(object):
             body = '\n'.join(raws[index + 1:]).lstrip()
 
         urlinfo = scheme, host, int(port), path
-
+        start = time.perf_counter()
         try:
             conn = self.httpcon.get_con(urlinfo, proxy=proxy)
         except:
@@ -218,7 +219,7 @@ class hackRequests(object):
         try:
             conn.putrequest(method, path, skip_host=True, skip_accept_encoding=True)
             for k, v in headers.items():
-                conn.putheader(k, v)
+                conn.putheader(k.strip(), v)
             if body and "Content-Length" not in headers and "Transfer-Encoding" not in headers:
                 length = conn._get_content_length(body, method)
                 conn.putheader("Content-Length", length)
@@ -239,6 +240,7 @@ class hackRequests(object):
             raise HackError("user exit")
         finally:
             conn.close()
+        elapsed = time.perf_counter() - start
         log["response"] = "HTTP/%.1f %d %s" % (
             rep.version * 0.1, rep.status,
             rep.reason) + '\r\n' + str(rep.msg)
@@ -253,7 +255,7 @@ class hackRequests(object):
                 redirect = parse.urljoin(_url, redirect)
             return self.http(redirect, post=None, method=method, headers=headers, location=True, locationcount=1)
 
-        return response(rep, _url, log, )
+        return response(rep, _url, log ,None,timedelta(seconds=elapsed))
 
     def http(self, url, **kwargs):
         method = kwargs.get("method", "GET")
@@ -326,8 +328,10 @@ class hackRequests(object):
                 'User-Agent') else 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/46.0.2490.71 Safari/537.36'
 
         try:
+            start = time.perf_counter()
             conn.request(method, path, post, tmp_headers)
             rep = conn.getresponse()
+            elapsed = time.perf_counter() - start
             # body = rep.read()
         except socket.timeout:
             raise HackError("socket connect timeout")
@@ -354,16 +358,17 @@ class hackRequests(object):
         if not redirect:
             redirect = url
         log["url"] = redirect
-        return response(rep, redirect, log, cookie)
+        return response(rep, redirect, log, cookie,timedelta(seconds=elapsed))
 
 
 class response(object):
 
-    def __init__(self, rep, redirect, log, oldcookie=''):
+    def __init__(self, rep, redirect, log, oldcookie='',elapsed = None):
         self.rep = rep
         self.status_code = self.rep.status  # response code
         self.url = redirect
         self._content = b''
+        self.elapsed = elapsed
 
         _header_dict = dict()
         self.cookie = ""
